@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reputation Manager AI Agent</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-6">
+  <div class="w-full max-w-3xl bg-white rounded-2xl shadow-xl p-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Reputation Manager AI Agent</h1>
+    <p class="text-gray-600 mb-8">
+      Submit customer feedback and let the AI agent analyze sentiment, urgency, category, reply draft, and escalation.
+    </p>
+
+    <form id="feedbackForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+        <input
+          type="text"
+          id="customer_name"
+          class="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter customer name"
+          required
+        />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+        <select
+          id="platform"
+          class="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Select platform</option>
+          <option value="Google">Google</option>
+          <option value="Facebook">Facebook</option>
+          <option value="Instagram">Instagram</option>
+          <option value="Website">Website</option>
+          <option value="Trustpilot">Trustpilot</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Rating</label>
+        <select
+          id="rating"
+          class="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        >
+          <option value="">Select rating</option>
+          <option value="1">1 - Very Bad</option>
+          <option value="2">2 - Bad</option>
+          <option value="3">3 - Neutral</option>
+          <option value="4">4 - Good</option>
+          <option value="5">5 - Excellent</option>
+        </select>
+      </div>
+
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+        <textarea
+          id="message"
+          rows="5"
+          class="w-full border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Write customer feedback..."
+          required
+        ></textarea>
+      </div>
+
+      <div class="md:col-span-2">
+        <button
+          type="submit"
+          id="submitBtn"
+          class="w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition"
+        >
+          Analyze Feedback
+        </button>
+      </div>
+    </form>
+
+    <div id="loading" class="hidden mt-6 text-blue-600 font-medium">
+      Processing feedback...
+    </div>
+
+    <div id="result" class="hidden mt-8 border rounded-2xl p-6 bg-gray-50">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">AI Analysis Result</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div><span class="font-semibold">Sentiment:</span> <span id="sentiment"></span></div>
+        <div><span class="font-semibold">Urgency:</span> <span id="urgency"></span></div>
+        <div><span class="font-semibold">Category:</span> <span id="category"></span></div>
+        <div><span class="font-semibold">Escalate:</span> <span id="escalate"></span></div>
+      </div>
+
+      <div class="mt-4">
+        <p class="font-semibold text-gray-800">Summary</p>
+        <p id="summary" class="text-gray-700 mt-1"></p>
+      </div>
+
+      <div class="mt-4">
+        <p class="font-semibold text-gray-800">Reply Draft</p>
+        <p id="reply_draft" class="text-gray-700 mt-1 whitespace-pre-line"></p>
+      </div>
+    </div>
+
+    <div id="error" class="hidden mt-6 text-red-600 font-medium"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById("feedbackForm");
+    const loading = document.getElementById("loading");
+    const result = document.getElementById("result");
+    const errorDiv = document.getElementById("error");
+    const submitBtn = document.getElementById("submitBtn");
+
+    // IMPORTANT:
+    // Replace this URL with your n8n production webhook URL
+    const WEBHOOK_URL = "YOUR_N8N_WEBHOOK_URL";
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      result.classList.add("hidden");
+      errorDiv.classList.add("hidden");
+      loading.classList.remove("hidden");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Analyzing...";
+
+      const payload = {
+        customer_name: document.getElementById("customer_name").value,
+        platform: document.getElementById("platform").value,
+        rating: document.getElementById("rating").value,
+        message: document.getElementById("message").value
+      };
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error("Webhook request failed");
+        }
+
+        const data = await response.json();
+
+        document.getElementById("sentiment").textContent = data.sentiment || "N/A";
+        document.getElementById("urgency").textContent = data.urgency || "N/A";
+        document.getElementById("category").textContent = data.category || "N/A";
+        document.getElementById("escalate").textContent = String(data.escalate);
+        document.getElementById("summary").textContent = data.summary || "N/A";
+        document.getElementById("reply_draft").textContent = data.reply_draft || "N/A";
+
+        result.classList.remove("hidden");
+      } catch (error) {
+        errorDiv.textContent = "Something went wrong: " + error.message;
+        errorDiv.classList.remove("hidden");
+      } finally {
+        loading.classList.add("hidden");
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Analyze Feedback";
+      }
+    });
+  </script>
+</body>
+</html>

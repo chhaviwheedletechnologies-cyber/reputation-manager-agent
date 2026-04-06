@@ -1,0 +1,419 @@
+{
+  "name": "Reputation Manager AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reputation-manager",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "7bb565c1-e350-4173-b052-e620f8db9b0b",
+      "name": "Webhook",
+      "webhookId": "41499e83-5036-49d3-aaa0-bb971eeb9e85"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5cbc4b79-6182-428e-98a2-94545403396a",
+              "name": "customer_name",
+              "value": "={{$json.body.customer_name}}",
+              "type": "string"
+            },
+            {
+              "id": "f97e6558-9f5c-475e-ac7e-b519aad3b7bf",
+              "name": "platform",
+              "value": "={{$json.body.platform}}",
+              "type": "string"
+            },
+            {
+              "id": "3f52e6d9-0e68-42e1-b441-cb7f431ad811",
+              "name": "rating",
+              "value": "={{$json.body.rating}}",
+              "type": "string"
+            },
+            {
+              "id": "4a704c95-4dee-4c08-bbda-d206222503a3",
+              "name": "message",
+              "value": "={{$json.body.message}}",
+              "type": "string"
+            },
+            {
+              "id": "09679ade-4aca-412d-a814-a28fa092954d",
+              "name": "created_at",
+              "value": "=\"{{$now}}\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "28f3ede1-b89b-417c-9407-b38f0d61bb4b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a Reputation Manager AI Agent.\n\nAnalyze the customer feedback and return ONLY valid JSON.\n\nUse this exact format:\n{\n  \"sentiment\": \"Positive, Neutral, or Negative\",\n  \"urgency\": \"Low, Medium, or High\",\n  \"category\": \"service delay, rude staff, billing problem, product quality, technical issue, or general feedback\",\n  \"summary\": \"short summary\",\n  \"reply_draft\": \"professional reply\",\n  \"escalate\": true\n}\n\nRules:\n- If rating is 1 or 2, set sentiment to Negative, urgency to High, escalate to true\n- If rating is 3, set sentiment to Neutral, urgency to Medium\n- If rating is 4 or 5, set sentiment to Positive, urgency to Low, escalate to false\n- Do not ask for more information\n- Do not write any sentence outside JSON\n- Return ONLY JSON\n\nInput:\nCustomer Name: {{$json.customer_name}}\nPlatform: {{$json.platform}}\nRating: {{$json.rating}}\nMessage: {{$json.message}}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        512,
+        0
+      ],
+      "id": "d11b6ba5-b15c-455c-a0b6-de7e81dd9034",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        384,
+        208
+      ],
+      "id": "7902fce0-0fad-456c-a3f9-ad97a0b6afbc",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "FHkn8MqqGDYLQaAj",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        672,
+        208
+      ],
+      "id": "f7b8630c-ee56-4cca-8c59-33fb31f2cdb9",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const raw = $json.output || $json.text || $json.response || $json.data || \"\";\n\nlet parsed = {};\n\nif (typeof raw === \"string\") {\n  try {\n    parsed = JSON.parse(raw);\n  } catch (e) {\n    parsed = {\n      sentiment: \"Unknown\",\n      urgency: \"Unknown\",\n      category: \"Unknown\",\n      summary: raw,\n      reply_draft: \"\",\n      escalate: false,\n      parse_error: \"AI did not return valid JSON\"\n    };\n  }\n} else if (raw && typeof raw === \"object\" && !Array.isArray(raw)) {\n  parsed = raw;\n} else {\n  parsed = {\n    sentiment: \"Unknown\",\n    urgency: \"Unknown\",\n    category: \"Unknown\",\n    summary: \"No valid AI output received\",\n    reply_draft: \"\",\n    escalate: false,\n    parse_error: \"Empty or invalid AI output\"\n  };\n}\n\nreturn {\n  json: {\n    ...$json,\n    ...parsed\n    }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        0
+      ],
+      "id": "fd96b2b8-9d68-42ab-9681-aa350a832a3a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2e607b68-d3f1-4977-bf88-b5c39722610c",
+              "leftValue": "={{$json.sentiment}}",
+              "rightValue": "Negative",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "38a7134b-421d-4525-9640-bef8d2ef2648",
+              "leftValue": "={{$json.urgency}}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "7c7d6fb3-931f-4ec1-91ba-46a2d929b96f",
+              "leftValue": "={{$json.escalate}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1072,
+        0
+      ],
+      "id": "7f664283-00e5-445f-af38-d72153e99b4d",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "sendTo": "chhavi.wheedletechnologies@gmail.com",
+        "subject": "=🚨 Negative Feedback Alert - {{$json[\"platform\"]}}",
+        "message": "=New Negative Feedback Detected  Customer: {{$json.customer_name}} Platform: {{$json.platform}} Rating: {{$json.rating}}  Sentiment: {{$json.sentiment}} Urgency: {{$json.urgency}} Category: {{$json.category}}  Summary: {{$json.summary}}  Suggested Reply: {{$json.reply_draft}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1280,
+        -64
+      ],
+      "id": "49a162f1-c509-43d5-8147-4cdf9cc431a8",
+      "name": "Send a message",
+      "webhookId": "2ea54604-4af4-4fe3-a19f-5566ff364e39",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "lyO6SR7ezqefh3X2",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "12JIuGm9b-f38G9-fNWumyr8fD8_34HRwMbwKIob8EK0",
+          "mode": "list",
+          "cachedResultName": "Reputation Manager Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12JIuGm9b-f38G9-fNWumyr8fD8_34HRwMbwKIob8EK0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/12JIuGm9b-f38G9-fNWumyr8fD8_34HRwMbwKIob8EK0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "customer_name | platform | rating | message | sentiment | urgency | category | summary | reply_draft | escalate | created_at": "={{$json.customer_name}}|{{$json.platform}}|{{$json.rating}}|{{$json.message}}|{{$json.sentiment}}|{{$json.urgency}}|{{$json.category}}|{{$json.summary}}|{{$json.reply_draft}}|{{$json.escalate}}|{{$json.created_at}}"
+          },
+          "matchingColumns": [
+            "customer_name | platform | rating | message | sentiment | urgency | category | summary | reply_draft | escalate | created_at"
+          ],
+          "schema": [
+            {
+              "id": "customer_name | platform | rating | message | sentiment | urgency | category | summary | reply_draft | escalate | created_at",
+              "displayName": "customer_name | platform | rating | message | sentiment | urgency | category | summary | reply_draft | escalate | created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1280,
+        96
+      ],
+      "id": "0f7faa64-b762-4ef8-8191-71e97db09455",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "sIQSDlMbhkBLJNkO",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"sentiment\": \"{{$json.sentiment}}\",\n  \"urgency\": \"{{$json.urgency}}\",\n  \"category\": \"{{$json.category}}\",\n  \"summary\": \"{{$json.summary}}\",\n  \"reply_draft\": \"{{$json.reply_draft}}\",\n  \"escalate\": \"{{$json.escalate}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1488,
+        -64
+      ],
+      "id": "4f7f9def-cd4d-4790-a9ca-0e80297379a7",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"sentiment\": \"{{$json.sentiment}}\",\n  \"urgency\": \"{{$json.urgency}}\",\n  \"category\": \"{{$json.category}}\",\n  \"summary\": \"{{$json.summary}}\",\n  \"reply_draft\": \"{{$json.reply_draft}}\",\n  \"escalate\": \"{{$json.escalate}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1488,
+        96
+      ],
+      "id": "eb258c44-86a6-49e7-afbc-0eac0991700b",
+      "name": "Respond to Webhook1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c7984b95-c88f-46f7-af39-8c900dca9fb6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b1daa0179536cfd1f24c34621aac201117cf2616bcd3c54f9392e2717237cad4"
+  },
+  "id": "G3GMD8msOIszZ2so",
+  "tags": []
+}
